@@ -8,7 +8,7 @@ This is a simple Flask auth blog application that provides basic autentification
 
 ```bash
 git clone git@github.com:VladyslavHnatchenko/flask-auth-blog-app.git
-cd blog_api
+cd flask-auth-blog-app/blog_api
 ```
 
 ## Docker Build and Up
