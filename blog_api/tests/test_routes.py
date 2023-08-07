@@ -33,11 +33,14 @@ class TestRoutes:
         return response.json['access_token']
 
     @pytest.fixture
-    def post_data(self):
-        return {
+    def post_data(self, client, test_user):
+        data = {
             "title": "New Post",
             "content": "This is the content of the new post"
         }
+        response = client.post('/posts', json=data, headers={"Authorization": f"Bearer {test_user}"})
+        assert response.status_code == 201
+        return response.json
 
     def test_register(self, client):
         data = {
@@ -61,114 +64,111 @@ class TestRoutes:
         assert response.json['email'] == "testuser@example.com"
 
     def test_create_post(self, client, test_user, post_data):
-        response = client.post('/posts', json=post_data, headers={"Authorization": f"Bearer {test_user}"})
-        assert response.status_code == 201
-        assert BlogPost.query.filter_by(title=post_data['title']).first() is not None
+        assert BlogPost.query.filter_by(title=post_data['data']['title']).first() is not None
+        assert post_data['data']['title'] == "New Post"
+        assert post_data['data']['content'] == "This is the content of the new post"
 
     def test_get_all_posts(self, client, test_user, post_data):
         response = client.get('/posts')
         assert response.status_code == 200
-        assert len(response.json['posts']) == 0  # No posts initially
-
-        # Create a post
-        client.post('/posts', json=post_data, headers={"Authorization": f"Bearer {test_user}"})
-
-        response = client.get('/posts')
-        assert response.status_code == 200
         assert len(response.json['posts']) == 1
-        assert response.json['posts'][0]['title'] == post_data['title']
+        assert response.json['posts'][0]['title'] == post_data['data']['title']
 
     def test_get_post(self, client, test_user, post_data):
-        # Create a post
-        response = client.post('/posts', json=post_data, headers={"Authorization": f"Bearer {test_user}"})
-        assert response.status_code == 201
-
-        response = client.get(f'/posts/1')
+        response = client.get(f"/posts/{post_data['data']['id']}")
         assert response.status_code == 200
-        assert response.json['title'] == post_data['title']
+        assert response.json['title'] == post_data['data']['title']
 
     def test_update_post(self, client, test_user, post_data):
-        # Create a post
-        response = client.post('/posts', json=post_data, headers={"Authorization": f"Bearer {test_user}"})
-        assert response.status_code == 201
-
         new_data = {
             "title": "Updated Title",
             "content": "This is the updated content."
         }
-        response = client.put(f'/posts/1', json=new_data, headers={"Authorization": f"Bearer {test_user}"})
+        response = client.put(
+            f"/posts/{post_data['data']['id']}",
+            json=new_data,
+            headers={"Authorization": f"Bearer {test_user}"}
+        )
         assert response.status_code == 200
         assert response.json['message'] == "Blog post updated successfully!"
 
     def test_delete_post(self, client, test_user, post_data):
-        # Create a post
-        response = client.post('/posts', json=post_data, headers={"Authorization": f"Bearer {test_user}"})
-        assert response.status_code == 201
-
-        response = client.delete(f'/posts/1', headers={"Authorization": f"Bearer {test_user}"})
+        response = client.delete(
+            f"/posts/{post_data['data']['id']}",
+            headers={"Authorization": f"Bearer {test_user}"}
+        )
         assert response.status_code == 200
         assert response.json['message'] == "Blog post deleted successfully!"
 
     def test_add_comment(self, client, test_user, post_data):
-        # Create a post
-        response = client.post('/posts', json=post_data, headers={"Authorization": f"Bearer {test_user}"})
-        assert response.status_code == 201
-
         comment_data = {
             "content": "This is a new comment."
         }
-        response = client.post(f'/posts/1/comments', json=comment_data, headers={"Authorization": f"Bearer {test_user}"})
+        response = client.post(
+            f"/posts/{post_data['data']['id']}/comments",
+            json=comment_data,
+            headers={"Authorization": f"Bearer {test_user}"}
+        )
         assert response.status_code == 201
         assert response.json['message'] == "Comment added successfully!"
 
     def test_get_comments(self, client, test_user, post_data):
-        # Create a post
-        response = client.post('/posts', json=post_data, headers={"Authorization": f"Bearer {test_user}"})
-        assert response.status_code == 201
-
-        response = client.get(f'/posts/1/comments')
+        response = client.get(f"/posts/{post_data['data']['id']}/comments")
         assert response.status_code == 200
         assert len(response.json['comments']) == 0  # No comments initially
 
         comment_data = {
             "content": "This is a new comment."
         }
-        client.post(f'/posts/1/comments', json=comment_data, headers={"Authorization": f"Bearer {test_user}"})
+        response = client.post(
+            f"/posts/{post_data['data']['id']}/comments",
+            json=comment_data,
+            headers={"Authorization": f"Bearer {test_user}"}
+        )
+        assert response.status_code == 201
 
-        response = client.get(f'/posts/1/comments')
+        response = client.get(f"/posts/{post_data['data']['id']}/comments")
         assert response.status_code == 200
         assert len(response.json['comments']) == 1
         assert response.json['comments'][0]['content'] == comment_data['content']
 
     def test_update_comment(self, client, test_user, post_data):
-        # Create a post
-        response = client.post('/posts', json=post_data, headers={"Authorization": f"Bearer {test_user}"})
-        assert response.status_code == 201
-
         comment_data = {
             "content": "This is a new comment."
         }
-        response = client.post(f'/posts/1/comments', json=comment_data, headers={"Authorization": f"Bearer {test_user}"})
+        response = client.post(
+            f"/posts/{post_data['data']['id']}/comments",
+            json=comment_data,
+            headers={"Authorization": f"Bearer {test_user}"}
+        )
         assert response.status_code == 201
+        assert response.json['message'] == "Comment added successfully!"
 
         updated_comment_data = {
             "content": "Updated comment content."
         }
-        response = client.put(f'/posts/1/comments/1', json=updated_comment_data, headers={"Authorization": f"Bearer {test_user}"})
-        assert response.status_code == 200
-        assert response.json['message'] == "Comment updated successfully!"
+        response_put = client.put(
+            f"/posts/{post_data['data']['id']}/comments/{response.json['data']['id']}",
+            json=updated_comment_data,
+            headers={"Authorization": f"Bearer {test_user}"}
+        )
+        assert response_put.status_code == 200
+        assert response_put.json['message'] == "Comment updated successfully!"
 
     def test_delete_comment(self, client, test_user, post_data):
-        # Create a post
-        response = client.post('/posts', json=post_data, headers={"Authorization": f"Bearer {test_user}"})
-        assert response.status_code == 201
-
         comment_data = {
             "content": "This is a new comment."
         }
-        response = client.post(f'/posts/1/comments', json=comment_data, headers={"Authorization": f"Bearer {test_user}"})
+        response = client.post(
+            f"/posts/{post_data['data']['id']}/comments",
+            json=comment_data,
+            headers={"Authorization": f"Bearer {test_user}"}
+        )
         assert response.status_code == 201
 
-        response = client.delete(f'/posts/1/comments/1', headers={"Authorization": f"Bearer {test_user}"})
+        response = client.delete(
+            f"/posts/{post_data['data']['id']}/comments/{response.json['data']['id']}",
+            headers={"Authorization": f"Bearer {test_user}"}
+        )
         assert response.status_code == 200
         assert response.json['message'] == "Comment deleted successfully!"

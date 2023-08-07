@@ -87,13 +87,32 @@ def create_post() -> tuple[Response, int]:
         }' http://0.0.0.0:5002/posts
 
     :return:
-        {"message": "Blog post created successfully!"}
+        {
+            "data":
+                {
+                    "author_id":1,
+                    "content":"This is the content of the new post",
+                    "created_at":"Mon, 07 Aug 2023 10:43:28 GMT",
+                    "id":1,
+                    "title":"New Post"
+                },
+            "message":"Blog post created successfully!"
+        }
     """
     data = request.get_json()
     new_post = BlogPost(title=data['title'], content=data['content'], author_id=get_jwt_identity())
     db.session.add(new_post)
     db.session.commit()
-    return jsonify({'message': 'Blog post created successfully!'}), 201
+
+    post_data = {
+        "id": new_post.id,
+        "title": new_post.title,
+        "content": new_post.content,
+        "author_id": new_post.author_id,
+        "created_at": new_post.created_at
+    }
+
+    return jsonify({'message': 'Blog post created successfully!', 'data': post_data}), 201
 
 
 @bp.route('/posts', methods=['GET'])
@@ -202,13 +221,32 @@ def add_comment(post_id: int) -> tuple[Response, int]:
 
     :param post_id:
     :return:
-        {"message": "Comment added successfully!"}
+        {
+            "data":
+                {
+                    "author_id":1,
+                    "content":"This is a new comment.",
+                    "created_at":"Mon, 07 Aug 2023 10:58:07 GMT",
+                    "id":1,
+                    "post_id":1
+                },
+            "message":"Comment added successfully!"
+        }
     """
     data = request.get_json()
     new_comment = Comment(content=data['content'], author_id=get_jwt_identity(), post_id=post_id)
     db.session.add(new_comment)
     db.session.commit()
-    return jsonify({'message': 'Comment added successfully!'}), 201
+
+    comment_data = {
+        "id": new_comment.id,
+        "content": new_comment.content,
+        "author_id": new_comment.author_id,
+        "post_id": new_comment.post_id,
+        "created_at": new_comment.created_at
+    }
+
+    return jsonify({'message': 'Comment added successfully!', 'data': comment_data}), 201
 
 
 @bp.route('/posts/<int:post_id>/comments', methods=['GET'])
